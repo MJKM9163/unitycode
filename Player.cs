@@ -4,11 +4,12 @@ using UnityEngine;
 
 public class Player : MonoBehaviour
 {
-    public Vector2 pos;
     public float maxSpeed;
     public float jumpPower;
     float h;
     bool attackAnimCheck;
+    public Transform attackPos;
+    public Vector2 boxSize;
     Rigidbody2D rigid;
     SpriteRenderer spriter;
     Animator anim;
@@ -44,11 +45,22 @@ public class Player : MonoBehaviour
         // 마우스 왼클릭 누르면 공격 애니메이션 실행
         // 런 애니메이션 비활성화
         // 움직임 속도 0으로 설정
-        if (Input.GetMouseButtonDown(0)) {
+        if (Input.GetMouseButtonDown(0) && !attackAnimCheck) {
             anim.SetBool("attack", true);
             anim.SetFloat("speed", 0);
             rigid.velocity = new Vector2(rigid.velocity.normalized.x*0.5f, rigid.velocity.y);
 
+            // 공격시 피격 박스 생성
+            // foreach문으로 모든 피격 박스를 확인하고 if문으로 Enemy가 피격됨을 확인
+            // Enemy가 감지되었다면 로그를 출력
+            Collider2D[] collider2Ds = Physics2D.OverlapBoxAll(attackPos.position, boxSize, 0);
+            foreach(Collider2D collider in collider2Ds) {
+                if (collider.tag == "Enemy") {
+                    //collider.GetComponent<Enemy>().TakeDamage(1);
+                    Debug.Log("적 감지");
+                }
+            }
+        
         // 공격 애니메이션이 실행 중인지 확인
         // 공격 애니메이션이 80% 실행되었는지 확인
         // 두 가지가 true라면 공격 애니메이션을 비활성화
@@ -57,8 +69,11 @@ public class Player : MonoBehaviour
         ) {
             anim.SetBool("attack", false);
         }
+    }
 
-
+    void OnDrawGizmos() {
+        Gizmos.color = Color.blue;
+        Gizmos.DrawWireCube(attackPos.position, boxSize);
     }
 
     // 고정된 프레임으로 업데이트!
