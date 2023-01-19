@@ -8,7 +8,8 @@ public class Player : MonoBehaviour
     public float jumpPower;
     float h;
     bool attackAnimCheck;
-    public Transform attackPos;
+    int attackCombo;
+    public Transform attackHitPos;
     public Vector2 boxSize;
     Rigidbody2D rigid;
     SpriteRenderer spriter;
@@ -20,19 +21,70 @@ public class Player : MonoBehaviour
         maxSpeed = 4;
         jumpPower = 5;
         attackAnimCheck = false;
+        attackCombo = 0;
     }
 
-    void Start()
-    {
+    // void Start()
+    // {
 
+    // }
+
+    void attack(int num) {
+        anim.SetFloat("combo", num);
+        anim.SetTrigger("attack");
     }
+
+    void SetAtk() {
+        StartCoroutine(ComboAtk());
+    }
+
+    IEnumerator ComboAtk() {
+        yield return null;
+        attackAnimCheck = anim.GetCurrentAnimatorStateInfo(0).IsName("attack Tree");
+        if (Input.GetMouseButtonDown(0) && !attackAnimCheck && attackCombo == 0) {
+            attack(attackCombo++);
+            anim.SetFloat("speed", 0);
+            rigid.velocity = new Vector2(rigid.velocity.normalized.x*0.5f, rigid.velocity.y);
+
+            Collider2D[] collider2Ds = Physics2D.OverlapBoxAll(attackHitPos.position, boxSize, 0);
+            foreach(Collider2D collider in collider2Ds) {
+                if (collider.tag == "Enemy") {
+                    //collider.GetComponent<Enemy>().TakeDamage(1);
+                    Debug.Log("적 감지");
+                }
+            }
+        } else if (attackAnimCheck && Input.GetMouseButtonDown(0) &&
+            anim.GetCurrentAnimatorStateInfo(0).normalizedTime >= 0.1f && attackCombo < 2
+        ) {
+            Debug.Log("콤보!");
+            attack(attackCombo++);
+            // anim.SetBool("attack", true);
+            Collider2D[] collider2Ds = Physics2D.OverlapBoxAll(attackHitPos.position, boxSize, 0);
+            foreach(Collider2D collider in collider2Ds) {
+                if (collider.tag == "Enemy") {
+                    //collider.GetComponent<Enemy>().TakeDamage(1);
+                    Debug.Log("적 감지");
+                }
+            }
+
+        } else if (attackAnimCheck &&
+            anim.GetCurrentAnimatorStateInfo(0).normalizedTime >= 0.98f
+        ) {
+            //Debug.Log("들어옴");
+            // anim.SetBool("attack", false);
+            attackCombo = 0;
+            //anim.SetFloat("combo", attackCombo);
+        }
+    }
+
 
     // 컴퓨터 성능에 따라 프레임이 다르다.
     // 단순한 로직 업데이트에 사용
     void Update()
     {
-        // 공격 애니메이션이 실행 중인지 체크
-        attackAnimCheck = anim.GetCurrentAnimatorStateInfo(0).IsName("attack");
+        SetAtk();
+        // // 공격 애니메이션이 실행 중인지 체크
+        // attackAnimCheck = anim.GetCurrentAnimatorStateInfo(0).IsName("attack Tree");
 
         // 좌 or 우 입력 버튼에서 땠을 때 확인
         // 속도를 0으로 설정
@@ -42,38 +94,57 @@ public class Player : MonoBehaviour
             anim.SetFloat("speed", 0);
         }
 
-        // 마우스 왼클릭 누르면 공격 애니메이션 실행
-        // 런 애니메이션 비활성화
-        // 움직임 속도 0으로 설정
-        if (Input.GetMouseButtonDown(0) && !attackAnimCheck) {
-            anim.SetBool("attack", true);
-            anim.SetFloat("speed", 0);
-            rigid.velocity = new Vector2(rigid.velocity.normalized.x*0.5f, rigid.velocity.y);
+        // // 마우스 왼클릭 누르면 공격 애니메이션 실행
+        // // 런 애니메이션 비활성화
+        // // 움직임 속도 0으로 설정
+        // if (Input.GetMouseButtonDown(0) && !attackAnimCheck && attackCombo == 0) {
+        //     anim.SetTrigger("attack");
+        //     anim.SetFloat("speed", 0);
+        //     rigid.velocity = new Vector2(rigid.velocity.normalized.x*0.5f, rigid.velocity.y);
 
-            // 공격시 피격 박스 생성
-            // foreach문으로 모든 피격 박스를 확인하고 if문으로 Enemy가 피격됨을 확인
-            // Enemy가 감지되었다면 로그를 출력
-            Collider2D[] collider2Ds = Physics2D.OverlapBoxAll(attackPos.position, boxSize, 0);
-            foreach(Collider2D collider in collider2Ds) {
-                if (collider.tag == "Enemy") {
-                    //collider.GetComponent<Enemy>().TakeDamage(1);
-                    Debug.Log("적 감지");
-                }
-            }
+        //     // 공격시 피격 박스 생성
+        //     // foreach문으로 모든 피격 박스를 확인하고 if문으로 Enemy가 피격됨을 확인
+        //     // Enemy가 감지되었다면 로그를 출력
+        //     Collider2D[] collider2Ds = Physics2D.OverlapBoxAll(attackHitPos.position, boxSize, 0);
+        //     foreach(Collider2D collider in collider2Ds) {
+        //         if (collider.tag == "Enemy") {
+        //             //collider.GetComponent<Enemy>().TakeDamage(1);
+        //             Debug.Log("적 감지");
+        //         }
+        //     }
         
-        // 공격 애니메이션이 실행 중인지 확인
-        // 공격 애니메이션이 80% 실행되었는지 확인
-        // 두 가지가 true라면 공격 애니메이션을 비활성화
-        } else if (attackAnimCheck &&
-            anim.GetCurrentAnimatorStateInfo(0).normalizedTime >= 1.0f
-        ) {
-            anim.SetBool("attack", false);
-        }
+        // // 공격 애니메이션이 실행 중인지 확인
+        // // 공격 애니메이션이 80% 실행되었는지 확인
+        // // 두 가지가 true라면 공격 애니메이션을 비활성화
+        // } else if (attackAnimCheck && Input.GetMouseButtonDown(0) &&
+        //     anim.GetCurrentAnimatorStateInfo(0).normalizedTime >= 0.1f && attackCombo < 3
+        // ) {
+        //     Debug.Log("콤보!");
+        //     anim.SetTrigger("attack");
+        //     attackCombo++;
+        //     anim.SetFloat("combo", attackCombo);
+        //     // anim.SetBool("attack", true);
+        //     Collider2D[] collider2Ds = Physics2D.OverlapBoxAll(attackHitPos.position, boxSize, 0);
+        //     foreach(Collider2D collider in collider2Ds) {
+        //         if (collider.tag == "Enemy") {
+        //             //collider.GetComponent<Enemy>().TakeDamage(1);
+        //             Debug.Log("적 감지");
+        //         }
+        //     }
+
+        // } else if (attackAnimCheck &&
+        //     anim.GetCurrentAnimatorStateInfo(0).normalizedTime >= 0.98f
+        // ) {
+        //     //Debug.Log("들어옴");
+        //     // anim.SetBool("attack", false);
+        //     attackCombo = 0;
+        //     anim.SetFloat("combo", attackCombo);
+        // }
     }
 
     void OnDrawGizmos() {
         Gizmos.color = Color.blue;
-        Gizmos.DrawWireCube(attackPos.position, boxSize);
+        Gizmos.DrawWireCube(attackHitPos.position, boxSize);
     }
 
     // 고정된 프레임으로 업데이트!
