@@ -7,8 +7,12 @@ public class Player : MonoBehaviour
     public GameManager gm;
 
     public float maxSpeed;
+    bool isAir;
     public float jumpPower;
     float jumpZ;
+    CapsuleCollider2D coll;
+    bool hLock;
+    bool vLock;
     public Vector2 inputVec; // 상하 위치 값
     Vector2 nextVec; // 움직이려는 위치 값
     bool atacando; // 공격이 가능한지 확인 (true = 공격 가능함)
@@ -26,8 +30,12 @@ public class Player : MonoBehaviour
         spriter = GetComponent<SpriteRenderer>();
         anim = GetComponent<Animator>();
         maxSpeed = 4;
+        isAir = false;
         jumpPower = 1;
         jumpZ = 0;
+        coll = GetComponent<CapsuleCollider2D>();
+        hLock = false;
+        vLock = false;
         atacando = true;
         attackAnimCheck = false;
         attackCombo = 0;
@@ -60,35 +68,30 @@ public class Player : MonoBehaviour
     IEnumerator JumpCo() {
         Debug.Log("점프!");
         float YSave = rigid.position.y;
-        bool jumpCheck = true;
+        bool isJump = true; // 현재 점프 중
+        isAir = true; // 현재 공중에 떠있는 중
         anim.SetBool("jump", true);
+        vLock = true;
+        //coll.enabled = false;
         while (true) {
-            // Debug.Log(jumpZ);
-            // if (attackAnimCheck) {
-            //     inputVec.y -= jumpZ;
-            //     rigid.MovePosition(rigid.position + inputVec);
-            //     anim.SetBool("jump", false);
-            //     anim.SetBool("down", false);
-            //     jumpCheck = true;
-            //     jumpZ = 0;
-            //     break;
-            // }
 
-            if (jumpPower > jumpZ && jumpCheck) {
+            if (jumpPower > jumpZ && isJump) {
                 jumpZ += Time.fixedDeltaTime * 3.5f;
 
-            } else if (YSave + jumpPower <= rigid.position.y && jumpCheck) {
+            } else if (YSave + jumpPower <= rigid.position.y && isJump) {
                 anim.SetBool("jump", false);
                 anim.SetBool("down", true);
-                jumpCheck = false;
+                isJump = false;
             }
             
-            if (!jumpCheck) {
+            if (!isJump) {
                 jumpZ -= Time.fixedDeltaTime * 3.5f;
                 if (YSave >= rigid.position.y - 0.01f) {
-                    jumpCheck = true;
                     jumpZ = 0;
                     anim.SetBool("down", false);
+                    vLock = false;
+                    isAir = false;
+                    //coll.enabled = true;
                     break;
                 }
             }
@@ -104,8 +107,10 @@ public class Player : MonoBehaviour
     void Update()
     {
 
-        inputVec.x = Input.GetAxisRaw("Horizontal");
-        inputVec.y = Input.GetAxisRaw("Vertical");
+        // 락이 걸려있지 않으면 움직임 입력을 받음
+        inputVec.x = hLock ? 0 : Input.GetAxisRaw("Horizontal");
+        inputVec.y = vLock ? 0 : Input.GetAxisRaw("Vertical");
+
         // 좌 or 우 입력 버튼에서 땠을 때 확인
         // 속도를 0으로 설정
         // 런 애니메이션 비활성화
@@ -151,7 +156,10 @@ public class Player : MonoBehaviour
         // 현재 공격중이 아닐 때
         // 앞, 뒤로 움직일 수 있다.
         if (!attackAnimCheck) {
-            rigid.MovePosition(rigid.position + nextVec);
+            float x = Mathf.Clamp(rigid.position.x, -17f, 14.8f);
+            float y = Mathf.Clamp(rigid.position.y, -0.3f, 6.2f + (isAir ? 5f : 0f));
+            rigid.MovePosition(new Vector2(x, y) + nextVec);
+            // rigid.MovePosition(rigid.position + nextVec);
             if (nextVec.x != 0 || nextVec.y != 0) {
                 anim.SetInteger("move", 1);
             } else {
@@ -175,6 +183,9 @@ public class Player : MonoBehaviour
     // 모든 Update 로직이 끝나면 실행된다.
     // 카메라 설정이나 후처리 로직을 주로 작성한다.
     void LateUpdate() {
+
+        // ✔반복되는 코드 리팩토링하기
+        // 캐릭터 방향에 따라 히트박스 위치 옮기기
         if (inputVec.x < 0 && !attackAnimCheck && !spriter.flipX) {
             spriter.flipX = true;
             Vector3 minusOne = attackHitPos.position;
