@@ -5,6 +5,7 @@ using UnityEngine;
 public class Player : MonoBehaviour
 {
     public GameManager gm;
+    public GameOption option;
 
     public float maxSpeed;
     bool isAir;
@@ -29,9 +30,9 @@ public class Player : MonoBehaviour
         rigid = GetComponent<Rigidbody2D>();
         spriter = GetComponent<SpriteRenderer>();
         anim = GetComponent<Animator>();
-        maxSpeed = 4;
+        maxSpeed = 40;
         isAir = false;
-        jumpPower = 1;
+        jumpPower = 4;
         jumpZ = 0;
         coll = GetComponent<CapsuleCollider2D>();
         hLock = false;
@@ -41,10 +42,17 @@ public class Player : MonoBehaviour
         attackCombo = 0;
     }
 
-    // void Start()
-    // {
+    void move() {
+        float x = Mathf.Clamp(rigid.position.x, -109f, 109f);
+        float y = Mathf.Clamp(rigid.position.y, -22f, 48f + (isAir ? 20f : 0f));
+        rigid.MovePosition(new Vector2(x, y) + nextVec);
 
-    // }
+        if (nextVec.x != 0 || nextVec.y != 0) {
+            anim.SetInteger("move", 1);
+        } else {
+            anim.SetInteger("move", 0);
+        }
+    }
 
     // 애니메이션에 사용
     // 일정 프레임이 지난 후 공격 활성 및 다음 공격 모션 설정
@@ -62,8 +70,13 @@ public class Player : MonoBehaviour
         atacando = true;
         attackCombo = 0;
         anim.SetInteger("combo", attackCombo);
-        gm.Action("");
+        //gm.Action("");
     }
+
+    // void Start()
+    // {
+
+    // }
 
     IEnumerator JumpCo() {
         Debug.Log("점프!");
@@ -72,7 +85,7 @@ public class Player : MonoBehaviour
         isAir = true; // 현재 공중에 떠있는 중
         anim.SetBool("jump", true);
         vLock = true;
-        //coll.enabled = false;
+        
         while (true) {
 
             if (jumpPower > jumpZ && isJump) {
@@ -89,9 +102,9 @@ public class Player : MonoBehaviour
                 if (YSave >= rigid.position.y - 0.01f) {
                     jumpZ = 0;
                     anim.SetBool("down", false);
+                    anim.SetInteger("move", 0);
                     vLock = false;
                     isAir = false;
-                    //coll.enabled = true;
                     break;
                 }
             }
@@ -156,14 +169,10 @@ public class Player : MonoBehaviour
         // 현재 공격중이 아닐 때
         // 앞, 뒤로 움직일 수 있다.
         if (!attackAnimCheck) {
-            float x = Mathf.Clamp(rigid.position.x, -17f, 14.8f);
-            float y = Mathf.Clamp(rigid.position.y, -0.3f, 6.2f + (isAir ? 5f : 0f));
-            rigid.MovePosition(new Vector2(x, y) + nextVec);
-            // rigid.MovePosition(rigid.position + nextVec);
-            if (nextVec.x != 0 || nextVec.y != 0) {
-                anim.SetInteger("move", 1);
-            } else {
-                anim.SetInteger("move", 0);
+            if (inputVec.x != 0 || inputVec.y != 0) {
+                option.indexAdjustment(spriter, rigid);
+                move();
+                Debug.Log("움직이는 중");
             }
 
             // 현재 실행중인 애니메이션이 점프가 아닐 경우
@@ -173,9 +182,7 @@ public class Player : MonoBehaviour
             if (!anim.GetCurrentAnimatorStateInfo(0).IsName("jump") &&
                 !anim.GetCurrentAnimatorStateInfo(0).IsName("down") &&
                 Input.GetButton("Jump")) {
-                    Debug.Log("점프!");
-                    //StopCoroutine("JumpCo");
-                    StartCoroutine("JumpCo");
+                StartCoroutine("JumpCo");
             }
         }
     }
