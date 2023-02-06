@@ -5,7 +5,6 @@ using UnityEngine;
 public class Player : MonoBehaviour
 {
     public GameManager gm;
-    public GameOption option;
     public float maxSpeed;
     public float jumpPower;
     float jumpZ;
@@ -17,8 +16,8 @@ public class Player : MonoBehaviour
     bool atacando; // 공격이 가능한지 확인 (true = 공격 가능함)
     bool attackAnimCheck; // 공격 중인지 확인 (true = 공격 중)
     int attackCombo; // 공격 콤보 (1부터 시작)
-    public Transform attackHitPos;
     public Vector2 boxSize;
+    public GameObject weapon;
     Rigidbody2D rigid;
     SpriteRenderer spriter;
     Animator anim;
@@ -58,7 +57,7 @@ public class Player : MonoBehaviour
         }
     }
 
-    // 애니메이션에 사용
+    // 공격 애니메이션에 사용
     // 일정 프레임이 지난 후 공격 활성 및 다음 공격 모션 설정
     void attack() {
         atacando = true;
@@ -67,7 +66,7 @@ public class Player : MonoBehaviour
         }
     }
 
-    // 애니메이션에 사용
+    // 공격 애니메이션에 사용
     // 공격 애니메이션이 종료되면 공격 설정 초기화
     void attackEnd() {
         attackAnimCheck = false;
@@ -75,48 +74,39 @@ public class Player : MonoBehaviour
         attackCombo = 0;
         anim.SetInteger("combo", attackCombo);
         PlayerStatus.isAttack = false;
+        weapon.SetActive(false);
+    }
+
+    // 공격 에니메이션에 사용
+    // 히트 박스 온 함수
+    void hitBoxOn() {
+        weapon.SetActive(true);
+    }
+
+    void dtest() {
+        anim.SetBool("damaged", false);
+    }
+
+    void OnTriggerEnter2D(Collider2D other) {
+        Debug.Log("공격 감지");
+        Debug.Log(other.gameObject.tag);
+
+        if (!other.CompareTag("EnemyHitBox")) {
+            return;
+        }
+
+        anim.SetBool("damaged", true);
+        Utile.onDamaged(other.transform.position, transform.position, rigid);
+        Debug.Log("Enemy에게 타격당함!");
+
+        Invoke("dtest", 0.5f);
+
     }
 
     // void Start()
     // {
 
     // }
-
-    IEnumerator JumpCo() {
-        Debug.Log("점프!");
-        float YSave = rigid.position.y;
-        bool isJump = true; // 현재 점프 중
-        PlayerStatus.isAir = true; // 현재 공중에 떠있는 중
-        anim.SetBool("jump", true);
-        vLock = true;
-        
-        while (true) {
-
-            if (jumpPower > jumpZ && isJump) {
-                jumpZ += Time.fixedDeltaTime * 3.5f;
-
-            } else if (YSave + jumpPower <= rigid.position.y && isJump) {
-                anim.SetBool("jump", false);
-                anim.SetBool("down", true);
-                isJump = false;
-            }
-            
-            if (!isJump) {
-                jumpZ -= Time.fixedDeltaTime * 3.5f;
-                if (YSave >= rigid.position.y - 0.01f) {
-                    jumpZ = 0;
-                    anim.SetBool("down", false);
-                    anim.SetInteger("move", 0);
-                    vLock = false;
-                    PlayerStatus.isAir = false;
-                    break;
-                }
-            }
-
-            inputVec.y += jumpZ;
-            yield return null;
-        }
-    }
 
     IEnumerator Skill1() {
         PlayerStatus.isSkill = true; // 임시 스킬 사용중 표시(방향, 움직임 등 제한 기능)
@@ -135,7 +125,7 @@ public class Player : MonoBehaviour
         PlayerStatus.isSkill = false;
     }
 
-    IEnumerator JumpTest() {
+    IEnumerator JumpCo() {
         PlayerStatus.isJump = true;
         PlayerStatus.isAir = true;
         Vector3 minus = rigid.position;
@@ -173,12 +163,15 @@ public class Player : MonoBehaviour
 
         // 락이 걸려있지 않으면 움직임 입력을 받음
         inputVec.x = hLock ? 0 : Input.GetAxisRaw("Horizontal");
-        inputVec.y = (vLock || PlayerStatus.isJump) ? 0 : Input.GetAxisRaw("Vertical");
+        if (!vLock || !PlayerStatus.isJump) {
+            inputVec.y = Input.GetAxisRaw("Vertical");
+        }
+        //inputVec.y = (vLock || PlayerStatus.isJump) ? 0 : Input.GetAxisRaw("Vertical");
 
         // 움직임 입력 버튼에서 손 땠음을 때 확인
         // 점프 중이 아닐 때 확인
         // 속도를 0으로 설정
-        if (Input.GetButtonUp("Horizontal") || Input.GetButtonUp("Vertical") &&
+        if ((Input.GetButtonUp("Horizontal") || Input.GetButtonUp("Vertical")) &&
             !PlayerStatus.isJump) {
             rigid.velocity = Vector2.zero;
         }
@@ -188,6 +181,7 @@ public class Player : MonoBehaviour
             anim.SetInteger("move", 0);
         }
 
+        // 공격
         if (Input.GetMouseButtonDown(0) && atacando &&
             !anim.GetCurrentAnimatorStateInfo(0).IsName("jump") &&
             !anim.GetCurrentAnimatorStateInfo(0).IsName("down")
@@ -195,17 +189,12 @@ public class Player : MonoBehaviour
             PlayerStatus.isAttack = true;
             attackAnimCheck = true;
             atacando = false;
+            rigid.velocity = Vector2.zero;
             anim.SetTrigger("attack");
             anim.SetInteger("combo", attackCombo == 0 ? ++attackCombo : attackCombo);
 
-            Collider2D[] collider2Ds = Physics2D.OverlapBoxAll(attackHitPos.position, boxSize, 0);
-            foreach(Collider2D collider in collider2Ds) {
-                if (collider.tag == "Enemy") {
-                    // collider.GetComponent<Enemy>().TakeDamage(1);
-                    Debug.Log("적 감지");
-                    gm.Action(collider.name + "를 타격!");
-                }
-            }
+            Utile.hitBox(weapon.transform.position, boxSize, "Enemy");
+
             anim.SetInteger("move", 0);
         }
 
@@ -221,19 +210,17 @@ public class Player : MonoBehaviour
         if (!anim.GetCurrentAnimatorStateInfo(0).IsName("jump") &&
             !anim.GetCurrentAnimatorStateInfo(0).IsName("down") &&
             Input.GetButtonDown("Jump")) {
-            Debug.Log("스페이스 클릭!");
             rigid.velocity = Vector2.zero;
-            //StartCoroutine("JumpCo");
-            StartCoroutine("JumpTest");
+            StartCoroutine("JumpCo");
         }
 
     }
 
     void OnDrawGizmos() {
         Gizmos.color = Color.blue;
-        Gizmos.DrawWireCube(attackHitPos.position, boxSize);
+        Gizmos.DrawWireCube(weapon.transform.position, boxSize);
     }
-
+    
     // 고정된 프레임으로 업데이트!
     // 물리 연산 로직에 주로 사용
     void FixedUpdate() {
@@ -242,13 +229,9 @@ public class Player : MonoBehaviour
         // 현재 공격중이 아닐 때
         // 앞, 뒤로 움직일 수 있다.
         if (!attackAnimCheck) {
-            if ((inputVec.x != 0 || inputVec.y != 0)
-                // !anim.GetCurrentAnimatorStateInfo(0).IsName("jump") &&
-                // !anim.GetCurrentAnimatorStateInfo(0).IsName("down")) {
-                    ) {
-                option.indexAdjustment(spriter, rigid);
+            if ((inputVec.x != 0 || inputVec.y != 0)) {
+                Utile.indexAdjustment(spriter, rigid);
                 move();
-                Debug.Log("움직이는 중");
             }
         }
     }
@@ -261,15 +244,15 @@ public class Player : MonoBehaviour
         // 캐릭터 방향에 따라 히트박스 위치 옮기기
         if (inputVec.x < 0 && !attackAnimCheck && !spriter.flipX) {
             spriter.flipX = true;
-            Vector3 minus = attackHitPos.position;
+            Vector3 minus = weapon.transform.position;
             minus.x -= 17.4f;
-            attackHitPos.position = minus;
+            weapon.transform.position = minus;
 
         } else if (inputVec.x > 0 && !attackAnimCheck && spriter.flipX) {
             spriter.flipX = false;
-            Vector3 minusOne = attackHitPos.position;
+            Vector3 minusOne = weapon.transform.position;
             minusOne.x += 17.4f;
-            attackHitPos.position = minusOne;
+            weapon.transform.position = minusOne;
         }
     }
 }
